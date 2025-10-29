@@ -505,7 +505,15 @@ public class MailGUI implements Listener {
         }
 
         if (title.contains("管理:")) {
-            adminViewing.remove(playerId);
+            Bukkit.getScheduler().runTaskLater(mailManager.getPlugin(), () -> {
+                if (player.getOpenInventory().getTopInventory().getHolder() == null) {
+                    String currentTitle = player.getOpenInventory().title().toString();
+                    if (!currentTitle.contains("管理:")) {
+                        adminViewing.remove(playerId);
+                        adminMailPage.remove(playerId);
+                    }
+                }
+            }, 1L);
         }
     }
 
@@ -513,18 +521,35 @@ public class MailGUI implements Listener {
         inv.clear();
 
         List<Mail> mails = mailManager.getPlayerMails(player.getName());
-        int slot = 0;
+        
+        List<ItemStack> allDisplayItems = new ArrayList<>();
         for (Mail mail : mails) {
             List<ItemStack> items = mail.getItems();
-            for (int i = 0; i < items.size() && slot < 54; i++) {
+            for (int i = 0; i < items.size(); i++) {
                 ItemStack item = items.get(i);
                 if (item != null && item.getType() != Material.AIR) {
                     ItemStack displayItem = createItemDisplayForMail(item, mail, i, false);
-                    inv.setItem(slot, displayItem);
-                    slot++;
+                    allDisplayItems.add(displayItem);
                 }
             }
         }
+
+        int totalPages = Math.max(1, (int) Math.ceil((double) allDisplayItems.size() / ITEMS_PER_PAGE));
+        int currentPage = mailboxPage.getOrDefault(player.getUniqueId(), 0);
+        
+        if (currentPage >= totalPages) {
+            currentPage = Math.max(0, totalPages - 1);
+            mailboxPage.put(player.getUniqueId(), currentPage);
+        }
+
+        int startIndex = currentPage * ITEMS_PER_PAGE;
+        int endIndex = Math.min(startIndex + ITEMS_PER_PAGE, allDisplayItems.size());
+        
+        for (int i = startIndex; i < endIndex; i++) {
+            inv.setItem(i - startIndex, allDisplayItems.get(i));
+        }
+
+        addPageNavigetionButtons(inv, currentPage, totalPages);
     }
 
     private void refreshAdminMailGUI(Player admin, String targetPlayerName, Inventory inv) {
