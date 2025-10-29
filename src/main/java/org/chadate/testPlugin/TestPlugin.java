@@ -16,11 +16,9 @@ public final class TestPlugin extends JavaPlugin {
     @Override
     public void onEnable() {
 
-        // 初始化管理器
         mailManager = new MailManager(this);
         mailGUI = new MailGUI(this);
 
-        // 注册命令
         MailCommands mailCommands = new MailCommands(this);
         Objects.requireNonNull(getCommand("mailbox")).setExecutor(mailCommands);
         Objects.requireNonNull(getCommand("mailbox")).setTabCompleter(mailCommands);
@@ -29,7 +27,6 @@ public final class TestPlugin extends JavaPlugin {
         Objects.requireNonNull(getCommand("adminmail")).setExecutor(mailCommands);
         Objects.requireNonNull(getCommand("adminmail")).setTabCompleter(mailCommands);
 
-        // 注册事件监听器
         getServer().getPluginManager().registerEvents(mailGUI, this);
         getServer().getPluginManager().registerEvents(new PlayerListener(this), this);
 
@@ -38,7 +35,6 @@ public final class TestPlugin extends JavaPlugin {
     @Override
     public void onDisable() {
 
-        // 保存所有邮件数据
         if (mailManager != null) {
             mailManager.saveAll();
         }

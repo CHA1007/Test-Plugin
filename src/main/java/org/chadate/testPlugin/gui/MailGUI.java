@@ -329,7 +329,7 @@ public class MailGUI implements Listener {
             ItemStack removedItem = mailManager.removeItemFromMail(targetPlayer, mailId, itemIndex);
             if (removedItem != null) {
                 admin.sendMessage(Component.text("✓ 已删除物品", NamedTextColor.GREEN));
-                refreshAdminMailGUI(admin, targetPlayer, event.getInventory());
+                refreshAdminMailGUI(targetPlayer, event.getInventory());
             } else {
                 admin.sendMessage(Component.text("✗ 删除失败", NamedTextColor.RED));
             }
@@ -409,7 +409,7 @@ public class MailGUI implements Listener {
         }
     }
 
-    private void refreshAdminMailGUI(Player admin, String targetPlayerName, Inventory inv) {
+    private void refreshAdminMailGUI(String targetPlayerName, Inventory inv) {
         inv.clear();
 
         List<Mail> mails = mailManager.getPlayerMails(targetPlayerName);
