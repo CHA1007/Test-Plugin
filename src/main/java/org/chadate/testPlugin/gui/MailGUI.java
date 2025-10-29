@@ -1,6 +1,5 @@
 package org.chadate.testPlugin.gui;
 
-
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -54,7 +53,6 @@ public class MailGUI implements Listener {
             }
         }
 
-        // 播放粒子效果
         player.spawnParticle(Particle.ENCHANT, player.getLocation().add(0, 2, 0), 30, 0.5, 0.5, 0.5, 0.1);
 
         player.openInventory(inv);
@@ -106,24 +104,20 @@ public class MailGUI implements Listener {
         ItemMeta meta = displayItem.getItemMeta();
         if (meta != null) {
 
-            // 获取原有lore或创建新的
-            List<Component> lore = meta.hasLore() ? new ArrayList<>(Objects.requireNonNull(meta.lore())) : new ArrayList<>();
+            List<Component> lore = meta.hasLore() ? new ArrayList<>(Objects.requireNonNull(meta.lore()))
+                    : new ArrayList<>();
 
-            // 添加邮件信息 - 简洁版
             lore.add(Component.empty());
 
-            // 发送者信息
             lore.add(Component.text("✉ ", NamedTextColor.AQUA)
                     .append(Component.text("发件人: ", NamedTextColor.GRAY))
                     .append(Component.text(mail.getSender(), NamedTextColor.GOLD)
                             .decoration(TextDecoration.BOLD, true)));
 
-            // 时间信息
             lore.add(Component.text("⏰ ", NamedTextColor.GREEN)
                     .append(Component.text("时间: ", NamedTextColor.GRAY))
                     .append(Component.text(mail.getSendTime(), NamedTextColor.WHITE)));
 
-            // 显示留言
             if (mail.hasMessage()) {
                 lore.add(Component.text("✎ ", NamedTextColor.LIGHT_PURPLE)
                         .append(Component.text("留言: ", NamedTextColor.GRAY))
@@ -167,11 +161,15 @@ public class MailGUI implements Listener {
     }
 
     private void giveItemsToPlayer(Player player, List<ItemStack> items) {
+        boolean hasShowMessage = false;
         for (ItemStack item : items) {
             if (item != null && item.getType() != Material.AIR) {
                 HashMap<Integer, ItemStack> notAdded = player.getInventory().addItem(item);
                 if (!notAdded.isEmpty()) {
-                    player.sendMessage(Component.text("背包已满！部分物品掉落在地上", NamedTextColor.RED));
+                    if (!hasShowMessage) {
+                        player.sendMessage(Component.text("背包已满！部分物品掉落在地上", NamedTextColor.RED));
+                        hasShowMessage = true;
+                    }
                     for (ItemStack drop : notAdded.values()) {
                         player.getWorld().dropItem(player.getLocation(), drop);
                     }
@@ -217,13 +215,10 @@ public class MailGUI implements Listener {
 
         String title = event.getView().title().toString();
 
-        // 处理邮箱界面点击
         if (title.contains("我的邮箱")) {
             event.setCancelled(true);
             handleMailboxClick(player, event);
-        }
-        // 处理管理员界面点击
-        else if (title.contains("管理:") && title.contains("的邮箱")) {
+        } else if (title.contains("管理:") && title.contains("的邮箱")) {
             event.setCancelled(true);
             handleAdminClick(player, event);
         }
@@ -253,14 +248,14 @@ public class MailGUI implements Listener {
                 giveItemsToPlayer(player, items);
 
                 player.playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP, 0.8f, 1.0f);
-                player.spawnParticle(Particle.HAPPY_VILLAGER, player.getLocation().add(0, 1, 0), 15, 0.5, 0.5, 0.5, 0.1);
+                player.spawnParticle(Particle.HAPPY_VILLAGER, player.getLocation().add(0, 1, 0), 15, 0.5, 0.5, 0.5,
+                        0.1);
                 player.sendMessage(
                         Component.text("✓ 已领取来自 " + targetMail.getSender() + " 的整封邮件", NamedTextColor.GREEN));
 
                 refreshMailboxGUI(player, event.getInventory());
             }
-        }
-        else if (event.getClick() == ClickType.LEFT) {
+        } else if (event.getClick() == ClickType.LEFT) {
             ItemStack removedItem = mailManager.removeItemFromMail(player.getName(), mailId, itemIndex);
 
             if (removedItem != null) {
@@ -292,7 +287,8 @@ public class MailGUI implements Listener {
                 giveItemsToPlayer(player, List.of(cleanItem));
 
                 player.playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP, 0.8f, 1.0f);
-                player.spawnParticle(Particle.HAPPY_VILLAGER, player.getLocation().add(0, 1, 0), 10, 0.3, 0.3, 0.3, 0.05);
+                player.spawnParticle(Particle.HAPPY_VILLAGER, player.getLocation().add(0, 1, 0), 10, 0.3, 0.3, 0.3,
+                        0.05);
                 player.sendMessage(Component.text("✓ 已领取物品", NamedTextColor.GREEN));
 
                 refreshMailboxGUI(player, event.getInventory());
@@ -333,8 +329,7 @@ public class MailGUI implements Listener {
             } else {
                 admin.sendMessage(Component.text("✗ 删除失败", NamedTextColor.RED));
             }
-        }
-        else if (event.getClick() == ClickType.LEFT) {
+        } else if (event.getClick() == ClickType.LEFT) {
             List<ItemStack> items = targetMail.getItems();
             if (itemIndex < items.size()) {
                 ItemStack item = items.get(itemIndex);

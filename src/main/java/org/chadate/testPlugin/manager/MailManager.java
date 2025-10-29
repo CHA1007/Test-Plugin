@@ -35,20 +35,16 @@ public class MailManager {
             return;
         }
 
-        // 创建邮件
         Mail mail = new Mail(sender, recipient, items, message);
 
-        // 添加到缓存
         mailCache.computeIfAbsent(recipient.toLowerCase(), k -> new ArrayList<>()).add(mail);
 
-        // 保存到文件
         savePlayerMails(recipient);
     }
 
     public List<Mail> getPlayerMails(String playerName) {
         String name = playerName.toLowerCase();
 
-        // 如果缓存中没有，从文件加载
         if (!mailCache.containsKey(name)) {
             loadPlayerMails(name);
         }
@@ -76,10 +72,8 @@ public class MailManager {
             return null;
         }
 
-        // 获取物品
         List<ItemStack> items = targetMail.getItems();
 
-        // 删除邮件
         mails.remove(targetMail);
         savePlayerMails(playerName);
 
@@ -121,7 +115,6 @@ public class MailManager {
 
         List<Mail> mails = mailCache.get(name);
         if (mails == null || mails.isEmpty()) {
-            // 如果没有邮件，删除文件
             if (file.exists()) {
                 if (!file.delete()){
                     plugin.getLogger().severe("无法删除玩家邮件文件: " + file.getAbsolutePath());
@@ -162,7 +155,6 @@ public class MailManager {
             return null;
         }
 
-        // 查找目标邮件
         Mail targetMail = null;
         for (Mail mail : mails) {
             if (mail.getId().equals(mailId)) {
@@ -175,19 +167,16 @@ public class MailManager {
             return null;
         }
 
-        // 直接从 Mail 对象中移除物品
         ItemStack removedItem = targetMail.removeItem(itemIndex);
 
         if (removedItem == null) {
             return null;
         }
 
-        // 如果邮件没有物品了，删除整封邮件
         if (targetMail.isEmpty()) {
             mails.remove(targetMail);
         }
 
-        // 保存更改
         savePlayerMails(playerName);
 
         return removedItem;

@@ -49,7 +49,6 @@ public class Mail implements ConfigurationSerializable {
         return map;
     }
 
-    // Getters
     public String getId() {
         return id;
     }
