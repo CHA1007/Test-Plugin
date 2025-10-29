@@ -1,6 +1,8 @@
 package org.chadate.testPlugin.gui;
 
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.*;
@@ -446,6 +448,16 @@ public class MailGUI implements Listener {
         if (recipientPlayer != null && recipientPlayer.isOnline()) {
             recipientPlayer.playSound(recipientPlayer.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.2f);
             recipientPlayer.sendMessage(Component.text("✉ 你收到了来自 " + sender.getName() + " 的新邮件！", NamedTextColor.GOLD));
+
+            Component clickableMessage = Component.text("➤ ", NamedTextColor.GREEN)
+                    .append(Component.text("[点击查看邮箱]", NamedTextColor.AQUA)
+                            .decoration(TextDecoration.BOLD, true)
+                            .clickEvent(ClickEvent.runCommand("/mailbox"))
+                            .hoverEvent(HoverEvent.showText(Component.text("点击打开邮箱", NamedTextColor.GREEN))))
+                    .append(Component.text(" 或输入 ", NamedTextColor.GRAY))
+                    .append(Component.text("/mailbox", NamedTextColor.WHITE));
+
+            recipientPlayer.sendMessage(clickableMessage);
         }
     }
 }
