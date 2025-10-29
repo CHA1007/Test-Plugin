@@ -32,28 +32,56 @@ public class MailGUI implements Listener {
 
     private final Map<UUID, String> adminViewing = new HashMap<>();
 
+    private final Map<UUID, Integer> mailboxPage = new HashMap<>();
+    private final Map<UUID, Integer> adminMailPage = new HashMap<>();
+
+    private static final int ITEMS_PER_PAGE = 45;
+
     public MailGUI(TestPlugin plugin) {
         this.mailManager = plugin.getMailManager();
     }
 
     public void openMailbox(Player player) {
+        mailboxPage.putIfAbsent(player.getUniqueId(), 0);
         List<Mail> mails = mailManager.getPlayerMails(player.getName());
 
-        Inventory inv = Bukkit.createInventory(null, 54,
-                Component.text("我的邮箱", NamedTextColor.DARK_PURPLE, TextDecoration.BOLD));
+        List<ItemStack> allItems = new ArrayList<>();
+        List<String> itemMailIds = new ArrayList<>();
+        List<Integer> itemIndexs = new ArrayList<>();
 
-        int slot = 0;
         for (Mail mail : mails) {
             List<ItemStack> items = mail.getItems();
-            for (int i = 0; i < items.size() && slot < 54; i++) {
+            for (int i = 0; i < items.size(); i++) {
                 ItemStack item = items.get(i);
                 if (item != null && item.getType() != Material.AIR) {
-                    ItemStack displayItem = createItemDisplayForMail(item, mail, i, false);
-                    inv.setItem(slot, displayItem);
-                    slot++;
+                    allItems.add(createItemDisplayForMail(item, mail, i, false));
+                    itemMailIds.add(mail.getId());
+                    itemIndexs.add(i);
                 }
             }
         }
+
+        int totalPages = (int) Math.ceil((double) allItems.size() / ITEMS_PER_PAGE);
+        if (totalPages == 0)
+            totalPages = 1;
+        int page = mailboxPage.get(player.getUniqueId());
+        if (page >= totalPages) {
+            page = totalPages - 1;
+            mailboxPage.put(player.getUniqueId(), page);
+        }
+
+        Inventory inv = Bukkit.createInventory(null, 54,
+                Component.text("我的邮箱 [" + (page + 1) + "/" + totalPages + "]", NamedTextColor.DARK_PURPLE,
+                        TextDecoration.BOLD));
+
+        int startIndex = page * ITEMS_PER_PAGE;
+        int endIndex = Math.min(startIndex + ITEMS_PER_PAGE, allItems.size());
+
+        for (int i = startIndex; i < endIndex; i++) {
+            inv.setItem(i - startIndex, allItems.get(i));
+        }
+
+        addPageNavigetionButtons(inv, page, totalPages);
 
         player.spawnParticle(Particle.ENCHANT, player.getLocation().add(0, 2, 0), 30, 0.5, 0.5, 0.5, 0.1);
 
@@ -79,23 +107,42 @@ public class MailGUI implements Listener {
         }
 
         adminViewing.put(admin.getUniqueId(), targetPlayerName);
+        adminMailPage.putIfAbsent(admin.getUniqueId(), 0);
+
         List<Mail> mails = mailManager.getPlayerMails(targetPlayerName);
 
-        Inventory inv = Bukkit.createInventory(null, 54,
-                Component.text("管理: " + targetPlayerName + " 的邮箱", NamedTextColor.RED, TextDecoration.BOLD));
-
-        int slot = 0;
+        List<ItemStack> allDisplayItems = new ArrayList<>();
         for (Mail mail : mails) {
             List<ItemStack> items = mail.getItems();
-            for (int i = 0; i < items.size() && slot < 54; i++) {
+            for (int i = 0; i < items.size(); i++) {
                 ItemStack item = items.get(i);
                 if (item != null && item.getType() != Material.AIR) {
                     ItemStack displayItem = createItemDisplayForMail(item, mail, i, true);
-                    inv.setItem(slot, displayItem);
-                    slot++;
+                    allDisplayItems.add(displayItem);
                 }
             }
         }
+
+        int totalPages = Math.max(1, (int) Math.ceil((double) allDisplayItems.size() / ITEMS_PER_PAGE));
+        int currentPage = adminMailPage.get(admin.getUniqueId());
+
+        if (currentPage >= totalPages) {
+            currentPage = Math.max(0, totalPages - 1);
+            adminMailPage.put(admin.getUniqueId(), currentPage);
+        }
+
+        Inventory inv = Bukkit.createInventory(null, 54,
+                Component.text("管理: " + targetPlayerName + " 的邮箱 [" + (currentPage + 1) + "/" + totalPages + "]",
+                        NamedTextColor.RED, TextDecoration.BOLD));
+
+        int startIndex = currentPage * ITEMS_PER_PAGE;
+        int endIndex = Math.min(startIndex + ITEMS_PER_PAGE, allDisplayItems.size());
+
+        for (int i = startIndex; i < endIndex; i++) {
+            inv.setItem(i - startIndex, allDisplayItems.get(i));
+        }
+
+        addPageNavigetionButtons(inv, currentPage, totalPages);
 
         admin.openInventory(inv);
     }
@@ -232,6 +279,43 @@ public class MailGUI implements Listener {
             return;
         }
 
+        int clickedSlot = event.getSlot();
+
+        if (clickedSlot == 45) {
+            int currentPage = mailboxPage.getOrDefault(player.getUniqueId(), 0);
+            if (currentPage > 0) {
+                mailboxPage.put(player.getUniqueId(), currentPage - 1);
+                player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1.0f);
+                openMailbox(player);
+            }
+            return;
+        }
+
+        if (clickedSlot == 53) {
+            List<Mail> mails = mailManager.getPlayerMails(player.getName());
+            int totalItems = 0;
+            for (Mail mail : mails) {
+                for (ItemStack item : mail.getItems()) {
+                    if (item != null && item.getType() != Material.AIR) {
+                        totalItems++;
+                    }
+                }
+            }
+            int totalPages = Math.max(1, (int) Math.ceil((double) totalItems / ITEMS_PER_PAGE));
+            int currentPage = mailboxPage.getOrDefault(player.getUniqueId(), 0);
+
+            if (currentPage < totalPages - 1) {
+                mailboxPage.put(player.getUniqueId(), currentPage + 1);
+                player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1.0f);
+                openMailbox(player);
+            }
+            return;
+        }
+
+        if (clickedSlot == 49) {
+            return;
+        }
+
         String mailId = extractMailId(clicked);
         int itemIndex = extractItemIndex(clicked);
 
@@ -311,6 +395,43 @@ public class MailGUI implements Listener {
             return;
         }
 
+        int clickedSlot = event.getSlot();
+
+        if (clickedSlot == 45) {
+            int currentPage = adminMailPage.getOrDefault(admin.getUniqueId(), 0);
+            if (currentPage > 0) {
+                adminMailPage.put(admin.getUniqueId(), currentPage - 1);
+                admin.playSound(admin.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1.0f);
+                openAdminMailGUI(admin, targetPlayer);
+            }
+            return;
+        }
+
+        if (clickedSlot == 53) {
+            List<Mail> mails = mailManager.getPlayerMails(targetPlayer);
+            int totalItems = 0;
+            for (Mail mail : mails) {
+                for (ItemStack item : mail.getItems()) {
+                    if (item != null && item.getType() != Material.AIR) {
+                        totalItems++;
+                    }
+                }
+            }
+            int totalPages = Math.max(1, (int) Math.ceil((double) totalItems / ITEMS_PER_PAGE));
+            int currentPage = adminMailPage.getOrDefault(admin.getUniqueId(), 0);
+
+            if (currentPage < totalPages - 1) {
+                adminMailPage.put(admin.getUniqueId(), currentPage + 1);
+                admin.playSound(admin.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1.0f);
+                openAdminMailGUI(admin, targetPlayer);
+            }
+            return;
+        }
+
+        if (clickedSlot == 49) {
+            return;
+        }
+
         String mailId = extractMailId(clicked);
         int itemIndex = extractItemIndex(clicked);
 
@@ -327,7 +448,7 @@ public class MailGUI implements Listener {
             ItemStack removedItem = mailManager.removeItemFromMail(targetPlayer, mailId, itemIndex);
             if (removedItem != null) {
                 admin.sendMessage(Component.text("✓ 已删除物品", NamedTextColor.GREEN));
-                refreshAdminMailGUI(targetPlayer, event.getInventory());
+                refreshAdminMailGUI(admin, targetPlayer, event.getInventory());
             } else {
                 admin.sendMessage(Component.text("✗ 删除失败", NamedTextColor.RED));
             }
@@ -406,22 +527,39 @@ public class MailGUI implements Listener {
         }
     }
 
-    private void refreshAdminMailGUI(String targetPlayerName, Inventory inv) {
+    private void refreshAdminMailGUI(Player admin, String targetPlayerName, Inventory inv) {
         inv.clear();
 
         List<Mail> mails = mailManager.getPlayerMails(targetPlayerName);
-        int slot = 0;
+
+        List<ItemStack> allDisplayItems = new ArrayList<>();
         for (Mail mail : mails) {
             List<ItemStack> items = mail.getItems();
-            for (int i = 0; i < items.size() && slot < 54; i++) {
+            for (int i = 0; i < items.size(); i++) {
                 ItemStack item = items.get(i);
                 if (item != null && item.getType() != Material.AIR) {
                     ItemStack displayItem = createItemDisplayForMail(item, mail, i, true);
-                    inv.setItem(slot, displayItem);
-                    slot++;
+                    allDisplayItems.add(displayItem);
                 }
             }
         }
+
+        int totalPages = Math.max(1, (int) Math.ceil((double) allDisplayItems.size() / ITEMS_PER_PAGE));
+        int currentPage = adminMailPage.getOrDefault(admin.getUniqueId(), 0);
+
+        if (currentPage >= totalPages) {
+            currentPage = Math.max(0, totalPages - 1);
+            adminMailPage.put(admin.getUniqueId(), currentPage);
+        }
+
+        int startIndex = currentPage * ITEMS_PER_PAGE;
+        int endIndex = Math.min(startIndex + ITEMS_PER_PAGE, allDisplayItems.size());
+
+        for (int i = startIndex; i < endIndex; i++) {
+            inv.setItem(i - startIndex, allDisplayItems.get(i));
+        }
+
+        addPageNavigetionButtons(inv, currentPage, totalPages);
     }
 
     private void handleSendMail(Player sender, String recipient, Inventory inv, String message) {
@@ -458,6 +596,63 @@ public class MailGUI implements Listener {
                     .append(Component.text("/mailbox", NamedTextColor.WHITE));
 
             recipientPlayer.sendMessage(clickableMessage);
+        }
+    }
+
+    private void addPageNavigetionButtons(Inventory inv, int mailboxPage, int totalPages) {
+        if (mailboxPage > 0) {
+            ItemStack prevPage = new ItemStack(Material.ARROW);
+            ItemMeta prevMeta = prevPage.getItemMeta();
+            if (prevMeta != null) {
+                prevMeta.displayName(Component.text("◀ 上一页", NamedTextColor.YELLOW, TextDecoration.BOLD));
+                List<Component> lore = new ArrayList<>();
+                lore.add(Component.text("点击查看第 " + mailboxPage + " 页", NamedTextColor.GRAY));
+                prevMeta.lore(lore);
+                prevPage.setItemMeta(prevMeta);
+            }
+            inv.setItem(45, prevPage);
+        } else {
+            ItemStack disabled = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
+            ItemMeta disabledMeta = disabled.getItemMeta();
+            if (disabledMeta != null) {
+                disabledMeta.displayName(Component.text("已是第一页", NamedTextColor.DARK_GRAY));
+                disabled.setItemMeta(disabledMeta);
+            }
+            inv.setItem(45, disabled);
+        }
+
+        ItemStack pageInfo = new ItemStack(Material.BOOK);
+        ItemMeta infoMeta = pageInfo.getItemMeta();
+        if (infoMeta != null) {
+            infoMeta.displayName(Component.text("第 " + (mailboxPage + 1) + " / " + totalPages + " 页",
+                    NamedTextColor.GOLD, TextDecoration.BOLD));
+            List<Component> lore = new ArrayList<>();
+            lore.add(Component.empty());
+            lore.add(Component.text("点击左右箭头进行翻页", NamedTextColor.GRAY));
+            infoMeta.lore(lore);
+            pageInfo.setItemMeta(infoMeta);
+        }
+        inv.setItem(49, pageInfo);
+
+        if (mailboxPage < totalPages - 1) {
+            ItemStack nextPage = new ItemStack(Material.ARROW);
+            ItemMeta nextMeta = nextPage.getItemMeta();
+            if (nextMeta != null) {
+                nextMeta.displayName(Component.text("下一页 ▶", NamedTextColor.YELLOW, TextDecoration.BOLD));
+                List<Component> lore = new ArrayList<>();
+                lore.add(Component.text("点击查看第 " + (mailboxPage + 2) + " 页", NamedTextColor.GRAY));
+                nextMeta.lore(lore);
+                nextPage.setItemMeta(nextMeta);
+            }
+            inv.setItem(53, nextPage);
+        } else {
+            ItemStack disabled = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
+            ItemMeta disabledMeta = disabled.getItemMeta();
+            if (disabledMeta != null) {
+                disabledMeta.displayName(Component.text("已是最后一页", NamedTextColor.DARK_GRAY));
+                disabled.setItemMeta(disabledMeta);
+            }
+            inv.setItem(53, disabled);
         }
     }
 }
