@@ -313,6 +313,34 @@ public class MailGUI implements Listener {
         }
 
         if (clickedSlot == 49) {
+            List<Mail> allMails = mailManager.getPlayerMails(player.getName());
+            if (allMails.isEmpty()) {
+                player.sendMessage(Component.text("✗ 没有可领取的邮件", NamedTextColor.RED));
+                return;
+            }
+
+            int totalClaimedItems = 0;
+            List<ItemStack> allItems = new ArrayList<>();
+            
+            for (Mail mail : allMails) {
+                List<ItemStack> items = mailManager.claimMail(player.getName(), mail.getId());
+                if (items != null && !items.isEmpty()) {
+                    allItems.addAll(items);
+                    totalClaimedItems += items.size();
+                }
+            }
+
+            if (totalClaimedItems > 0) {
+                giveItemsToPlayer(player, allItems);
+                
+                player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.8f, 1.5f);
+                player.spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 30, 0.5, 0.5, 0.5, 0.1);
+                player.sendMessage(Component.text("✓ 已领取所有邮件，共 " + totalClaimedItems + " 个物品", NamedTextColor.GOLD));
+                
+                refreshMailboxGUI(player, event.getInventory());
+            } else {
+                player.sendMessage(Component.text("✗ 没有可领取的物品", NamedTextColor.RED));
+            }
             return;
         }
 
@@ -481,6 +509,8 @@ public class MailGUI implements Listener {
                     }
 
                     admin.getInventory().addItem(cleanItem);
+                    admin.playSound(admin.getLocation(), Sound.ENTITY_ITEM_PICKUP, 0.8f, 1.2f);
+                    admin.spawnParticle(Particle.HAPPY_VILLAGER, admin.getLocation().add(0, 1, 0), 10, 0.3, 0.3, 0.3, 0.05);
                     admin.sendMessage(Component.text("✓ 已领取物品副本", NamedTextColor.GREEN));
                 }
             }
@@ -654,6 +684,9 @@ public class MailGUI implements Listener {
             List<Component> lore = new ArrayList<>();
             lore.add(Component.empty());
             lore.add(Component.text("点击左右箭头进行翻页", NamedTextColor.GRAY));
+            lore.add(Component.empty());
+            lore.add(Component.text("✨ 点击书本 ✨", NamedTextColor.YELLOW, TextDecoration.BOLD));
+            lore.add(Component.text("一键领取所有邮件", NamedTextColor.GREEN));
             infoMeta.lore(lore);
             pageInfo.setItemMeta(infoMeta);
         }
