@@ -1,0 +1,27 @@
+name: Test-Plugin
+version: '1.0-SNAPSHOT'
+main: org.chadate.testPlugin.TestPlugin
+api-version: '1.21'
+authors: [ CHA_DATE ]
+description: 物品邮件系统 - 支持玩家之间发送物品邮件
+load: POSTWORLD
+
+commands:
+  mailbox:
+    description: 打开自己的邮箱
+    usage: /<command>
+    aliases: [mail]
+
+  sendmail:
+    description: 向指定玩家发送物品邮件
+    usage: /<command> <玩家名> [留言]
+
+  adminmail:
+    description: 管理员查看并管理玩家邮箱
+    usage: /<command> <玩家名>
+    permission: itemmail.admin
+
+permissions:
+  itemmail.admin:
+    description: 管理员权限 - 可以查看和管理任意玩家的邮箱
+    default: op
