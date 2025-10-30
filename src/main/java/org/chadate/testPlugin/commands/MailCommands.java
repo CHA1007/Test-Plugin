@@ -78,7 +78,7 @@ public class MailCommands implements CommandExecutor, TabCompleter {
     }
 
     private void handleAdminMailCommand(Player admin, String[] args) {
-        if (!admin.hasPermission("itememail.admin")) {
+        if (!admin.hasPermission("testplugin.admin")) {
             admin.sendMessage(Component.text("你没有权限使用此命令！", NamedTextColor.RED));
             return;
         }

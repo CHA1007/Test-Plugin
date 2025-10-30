@@ -1,5 +1,6 @@
 package org.chadate.testPlugin.manager;
 
+import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.inventory.ItemStack;
 import org.chadate.testPlugin.TestPlugin;
@@ -8,9 +9,9 @@ import org.chadate.testPlugin.model.Mail;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 public class MailManager {
@@ -21,7 +22,7 @@ public class MailManager {
     public MailManager(TestPlugin plugin){
         this.plugin = plugin;
         this.mailFolder = new File(plugin.getDataFolder(), "mails");
-        this.mailCache = new HashMap<>();
+        this.mailCache = new ConcurrentHashMap<>();
 
         if (!mailFolder.exists()) {
             if (!mailFolder.mkdirs()){
@@ -46,7 +47,7 @@ public class MailManager {
         String name = playerName.toLowerCase();
 
         if (!mailCache.containsKey(name)) {
-            loadPlayerMails(name);
+            loadPlayerMailsSync(name);
         }
 
         return new ArrayList<>(mailCache.getOrDefault(name, new ArrayList<>()));
@@ -80,7 +81,7 @@ public class MailManager {
         return items;
     }
 
-    private void loadPlayerMails(String playerName) {
+    private void loadPlayerMailsSync(String playerName) {
         String name = playerName.toLowerCase();
         File file = new File(mailFolder, name + ".yml");
 
@@ -111,30 +112,34 @@ public class MailManager {
 
     private void savePlayerMails(String playerName) {
         String name = playerName.toLowerCase();
-        File file = new File(mailFolder, name + ".yml");
-
         List<Mail> mails = mailCache.get(name);
-        if (mails == null || mails.isEmpty()) {
-            if (file.exists()) {
-                if (!file.delete()){
-                    plugin.getLogger().severe("无法删除玩家邮件文件: " + file.getAbsolutePath());
+        
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            File file = new File(mailFolder, name + ".yml");
+            
+            if (mails == null || mails.isEmpty()) {
+                if (file.exists()) {
+                    if (!file.delete()){
+                        plugin.getLogger().severe("无法删除玩家邮件文件: " + file.getAbsolutePath());
+                    }
                 }
+                return;
             }
-            return;
-        }
 
-        YamlConfiguration config = new YamlConfiguration();
-        List<Map<String, Object>> serializedMails = mails.stream()
-                .map(Mail::serialize)
-                .collect(Collectors.toList());
+            YamlConfiguration config = new YamlConfiguration();
+            List<Map<String, Object>> serializedMails = mails.stream()
+                    .map(Mail::serialize)
+                    .collect(Collectors.toList());
 
-        config.set("mails", serializedMails);
+            config.set("mails", serializedMails);
 
-        try {
-            config.save(file);
-        } catch (IOException e) {
-            plugin.getLogger().severe("无法保存玩家邮件: " + playerName);
-        }
+            try {
+                config.save(file);
+            } catch (IOException e) {
+                plugin.getLogger().severe("无法保存玩家邮件: " + playerName);
+                e.printStackTrace();
+            }
+        });
     }
 
     public void saveAll() {

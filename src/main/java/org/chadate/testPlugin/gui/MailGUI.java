@@ -43,23 +43,8 @@ public class MailGUI implements Listener {
 
     public void openMailbox(Player player) {
         mailboxPage.putIfAbsent(player.getUniqueId(), 0);
-        List<Mail> mails = mailManager.getPlayerMails(player.getName());
-
-        List<ItemStack> allItems = new ArrayList<>();
-        List<String> itemMailIds = new ArrayList<>();
-        List<Integer> itemIndexs = new ArrayList<>();
-
-        for (Mail mail : mails) {
-            List<ItemStack> items = mail.getItems();
-            for (int i = 0; i < items.size(); i++) {
-                ItemStack item = items.get(i);
-                if (item != null && item.getType() != Material.AIR) {
-                    allItems.add(createItemDisplayForMail(item, mail, i, false));
-                    itemMailIds.add(mail.getId());
-                    itemIndexs.add(i);
-                }
-            }
-        }
+        
+        List<ItemStack> allItems = buildMailItemList(player.getName(), false);
 
         int totalPages = (int) Math.ceil((double) allItems.size() / ITEMS_PER_PAGE);
         if (totalPages == 0)
@@ -101,7 +86,7 @@ public class MailGUI implements Listener {
     }
 
     public void openAdminMailGUI(Player admin, String targetPlayerName) {
-        if (!admin.hasPermission("item mail.admin")) {
+        if (!admin.hasPermission("testplugin.admin")) {
             admin.sendMessage(Component.text("你没有权限使用此功能！", NamedTextColor.RED));
             return;
         }
@@ -109,19 +94,7 @@ public class MailGUI implements Listener {
         adminViewing.put(admin.getUniqueId(), targetPlayerName);
         adminMailPage.putIfAbsent(admin.getUniqueId(), 0);
 
-        List<Mail> mails = mailManager.getPlayerMails(targetPlayerName);
-
-        List<ItemStack> allDisplayItems = new ArrayList<>();
-        for (Mail mail : mails) {
-            List<ItemStack> items = mail.getItems();
-            for (int i = 0; i < items.size(); i++) {
-                ItemStack item = items.get(i);
-                if (item != null && item.getType() != Material.AIR) {
-                    ItemStack displayItem = createItemDisplayForMail(item, mail, i, true);
-                    allDisplayItems.add(displayItem);
-                }
-            }
-        }
+        List<ItemStack> allDisplayItems = buildMailItemList(targetPlayerName, true);
 
         int totalPages = Math.max(1, (int) Math.ceil((double) allDisplayItems.size() / ITEMS_PER_PAGE));
         int currentPage = adminMailPage.get(admin.getUniqueId());
@@ -373,31 +346,7 @@ public class MailGUI implements Listener {
             ItemStack removedItem = mailManager.removeItemFromMail(player.getName(), mailId, itemIndex);
 
             if (removedItem != null) {
-
-                ItemStack cleanItem = removedItem.clone();
-                ItemMeta meta = cleanItem.getItemMeta();
-                if (meta != null && meta.hasLore()) {
-                    List<Component> lore = new ArrayList<>(Objects.requireNonNull(meta.lore()));
-
-                    int separatorIndex = -1;
-                    for (int i = 0; i < lore.size(); i++) {
-                        String text = ((net.kyori.adventure.text.TextComponent) lore.get(i)).content();
-                        if (text.contains("━")) {
-                            separatorIndex = i;
-                            break;
-                        }
-                    }
-                    if (separatorIndex >= 0) {
-                        lore = lore.subList(0, separatorIndex);
-                        if (lore.isEmpty()) {
-                            meta.lore(null);
-                        } else {
-                            meta.lore(lore);
-                        }
-                    }
-                    cleanItem.setItemMeta(meta);
-                }
-
+                ItemStack cleanItem = cleanItemLore(removedItem);
                 giveItemsToPlayer(player, List.of(cleanItem));
 
                 player.playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP, 0.8f, 1.0f);
@@ -485,29 +434,7 @@ public class MailGUI implements Listener {
             if (itemIndex < items.size()) {
                 ItemStack item = items.get(itemIndex);
                 if (item != null && item.getType() != Material.AIR) {
-                    ItemStack cleanItem = item.clone();
-                    ItemMeta meta = cleanItem.getItemMeta();
-                    if (meta != null && meta.hasLore()) {
-                        List<Component> lore = new ArrayList<>(Objects.requireNonNull(meta.lore()));
-                        int separatorIndex = -1;
-                        for (int i = 0; i < lore.size(); i++) {
-                            String text = ((net.kyori.adventure.text.TextComponent) lore.get(i)).content();
-                            if (text.contains("━")) {
-                                separatorIndex = i;
-                                break;
-                            }
-                        }
-                        if (separatorIndex >= 0) {
-                            lore = lore.subList(0, separatorIndex);
-                            if (lore.isEmpty()) {
-                                meta.lore(null);
-                            } else {
-                                meta.lore(lore);
-                            }
-                        }
-                        cleanItem.setItemMeta(meta);
-                    }
-
+                    ItemStack cleanItem = cleanItemLore(item);
                     admin.getInventory().addItem(cleanItem);
                     admin.playSound(admin.getLocation(), Sound.ENTITY_ITEM_PICKUP, 0.8f, 1.2f);
                     admin.spawnParticle(Particle.HAPPY_VILLAGER, admin.getLocation().add(0, 1, 0), 10, 0.3, 0.3, 0.3, 0.05);
@@ -550,19 +477,7 @@ public class MailGUI implements Listener {
     private void refreshMailboxGUI(Player player, Inventory inv) {
         inv.clear();
 
-        List<Mail> mails = mailManager.getPlayerMails(player.getName());
-        
-        List<ItemStack> allDisplayItems = new ArrayList<>();
-        for (Mail mail : mails) {
-            List<ItemStack> items = mail.getItems();
-            for (int i = 0; i < items.size(); i++) {
-                ItemStack item = items.get(i);
-                if (item != null && item.getType() != Material.AIR) {
-                    ItemStack displayItem = createItemDisplayForMail(item, mail, i, false);
-                    allDisplayItems.add(displayItem);
-                }
-            }
-        }
+        List<ItemStack> allDisplayItems = buildMailItemList(player.getName(), false);
 
         int totalPages = Math.max(1, (int) Math.ceil((double) allDisplayItems.size() / ITEMS_PER_PAGE));
         int currentPage = mailboxPage.getOrDefault(player.getUniqueId(), 0);
@@ -585,19 +500,7 @@ public class MailGUI implements Listener {
     private void refreshAdminMailGUI(Player admin, String targetPlayerName, Inventory inv) {
         inv.clear();
 
-        List<Mail> mails = mailManager.getPlayerMails(targetPlayerName);
-
-        List<ItemStack> allDisplayItems = new ArrayList<>();
-        for (Mail mail : mails) {
-            List<ItemStack> items = mail.getItems();
-            for (int i = 0; i < items.size(); i++) {
-                ItemStack item = items.get(i);
-                if (item != null && item.getType() != Material.AIR) {
-                    ItemStack displayItem = createItemDisplayForMail(item, mail, i, true);
-                    allDisplayItems.add(displayItem);
-                }
-            }
-        }
+        List<ItemStack> allDisplayItems = buildMailItemList(targetPlayerName, true);
 
         int totalPages = Math.max(1, (int) Math.ceil((double) allDisplayItems.size() / ITEMS_PER_PAGE));
         int currentPage = adminMailPage.getOrDefault(admin.getUniqueId(), 0);
@@ -712,5 +615,70 @@ public class MailGUI implements Listener {
             }
             inv.setItem(53, disabled);
         }
+    }
+
+    /**
+     * 构建邮件物品显示列表（通用方法）
+     * @param playerName 玩家名称
+     * @param isAdmin 是否为管理员模式
+     * @return 显示物品列表
+     */
+    private List<ItemStack> buildMailItemList(String playerName, boolean isAdmin) {
+        List<Mail> mails = mailManager.getPlayerMails(playerName);
+        List<ItemStack> allDisplayItems = new ArrayList<>();
+        
+        for (Mail mail : mails) {
+            List<ItemStack> items = mail.getItems();
+            for (int i = 0; i < items.size(); i++) {
+                ItemStack item = items.get(i);
+                if (item != null && item.getType() != Material.AIR) {
+                    ItemStack displayItem = createItemDisplayForMail(item, mail, i, isAdmin);
+                    allDisplayItems.add(displayItem);
+                }
+            }
+        }
+        
+        return allDisplayItems;
+    }
+
+    /**
+     * 清理物品的邮件相关lore（通用方法）
+     * @param item 原始物品
+     * @return 清理后的物品
+     */
+    private ItemStack cleanItemLore(ItemStack item) {
+        ItemStack cleanItem = item.clone();
+        ItemMeta meta = cleanItem.getItemMeta();
+        
+        if (meta != null && meta.hasLore()) {
+            List<Component> lore = new ArrayList<>(Objects.requireNonNull(meta.lore()));
+            
+            int separatorIndex = -1;
+            for (int i = 0; i < lore.size(); i++) {
+                String text = ((net.kyori.adventure.text.TextComponent) lore.get(i)).content();
+                if (text.isEmpty() && i > 0) {
+                    if (i + 1 < lore.size()) {
+                        String nextText = ((net.kyori.adventure.text.TextComponent) lore.get(i + 1)).content();
+                        if (nextText.contains("✉") || nextText.contains("发件人")) {
+                            separatorIndex = i;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            if (separatorIndex >= 0) {
+                lore = lore.subList(0, separatorIndex);
+                if (lore.isEmpty()) {
+                    meta.lore(null);
+                } else {
+                    meta.lore(lore);
+                }
+            }
+            
+            cleanItem.setItemMeta(meta);
+        }
+        
+        return cleanItem;
     }
 }
