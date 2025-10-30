@@ -19,9 +19,9 @@ commands:
   adminmail:
     description: 管理员查看并管理玩家邮箱
     usage: /<command> <玩家名>
-    permission: itemmail.admin
+    permission: testplugin.admin
 
 permissions:
-  itemmail.admin:
+  testplugin.admin:
     description: 管理员权限 - 可以查看和管理任意玩家的邮箱
     default: op
